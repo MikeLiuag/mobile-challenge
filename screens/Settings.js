@@ -1,3 +1,4 @@
+import { useState , useEffect} from "react";
 import {
   ScrollView,
   StyleSheet,
@@ -8,7 +9,9 @@ import {
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Icon from 'react-native-vector-icons/Ionicons'
-
+import CustomHeader from '../components/CustomHeader'
+import { useSelector, useDispatch } from 'react-redux';
+import { setSettingValues } from "../redux/actions/settingsAction";
 import {
   colors,
   containerStyles,
@@ -16,10 +19,71 @@ import {
   sizes,
   textStyles
 } from '../lib/styles'
+import { store } from "../redux/store";
 
 export default function Settings({ navigation }) {
-  const insets = useSafeAreaInsets()
 
+  const insets = useSafeAreaInsets()
+  const dispatch = useDispatch();
+  const genresList = useSelector((store) => store.genresList.genresList)
+  const settingValues = useSelector((store) =>  store.settingValues.settingValues)  
+
+  const [activeSortItem , setActiveSortItem] = useState('popularity')
+  const [selctedGenres, setSelectedGenres] = useState([])
+  const [year, setYear] = useState('')
+  const [startRuntimeVal, setStartRuntimeVal] = useState('')
+  const [endRuntimeVal, setEndRuntimeVal] = useState('')
+  const [showRuntimeErr, setShowRunTimeErr] = useState(false)
+  
+  useEffect(() => {
+   setActiveSortItem(settingValues?.sortVal)
+   setSelectedGenres(settingValues?.selectedGenres)
+   setYear(settingValues?.yearTxt)
+   setStartRuntimeVal(settingValues?.startRuntimeVal)
+   setEndRuntimeVal(settingValues?.endRuntimeVal)
+  }, [settingValues])
+
+  const handleLeftBtnClick = () => {
+    navigation.goBack()
+  }
+  const handleGenresItemClick = (genres) => {
+    if(selctedGenres.includes(genres)) {
+      let arrayList = [...selctedGenres]
+      let index = arrayList.indexOf(genres)
+      if (index !== -1) {
+        arrayList.splice(index, 1);
+        setSelectedGenres(arrayList)
+      }
+    }
+    else {
+      let arrayList = [...selctedGenres]
+      arrayList.push(genres)
+      setSelectedGenres(arrayList)
+    }
+  }
+
+  const renderGenresList = () => {
+    return genresList.map((genres, index) => {
+      return <Genre name={genres?.name} selected={selctedGenres.includes(genres)} onSelect={() => handleGenresItemClick(genres)} key={index}/>
+    })
+  }
+
+  const handleSaveSetting = () => {
+    if((startRuntimeVal !== '') && (startRuntimeVal > endRuntimeVal)) {
+      setShowRunTimeErr(true)
+      return
+    }
+    const settingVals = {
+      selectedGenres: selctedGenres,
+      sortVal: activeSortItem,
+      yearTxt: year,
+      startRuntimeVal,
+      endRuntimeVal
+    }
+    dispatch(setSettingValues(settingVals))
+    setShowRunTimeErr(false)
+    navigation.goBack()
+  }
   return (
     <View
       style={[
@@ -29,22 +93,21 @@ export default function Settings({ navigation }) {
         }
       ]}
     >
+      <CustomHeader leftBtnIcon={'chevron-back'} title={'Settings'} onLeftBtnClick={handleLeftBtnClick} />
       <ScrollView contentContainerStyle={styles.wrapper}>
         <View>
           <Text style={textStyles.h2}>Sort by</Text>
           <View>
-            <SortOption name="Popularity" selected={true} />
-            <SortOption name="Rating" selected={false} />
-            <SortOption name="Newest First" selected={false} />
-            <SortOption name="Oldest First" selected={false} />
+            <SortOption name="Popularity" selected={activeSortItem === 'popularity'}  onSelect={()=> setActiveSortItem('popularity')} />
+            <SortOption name="Rating" selected={activeSortItem === 'rating'}   onSelect={()=> setActiveSortItem('rating')} />
+            <SortOption name="Newest First" selected={activeSortItem === 'newest'}   onSelect={()=> setActiveSortItem('newest')} />
+            <SortOption name="Oldest First" selected={activeSortItem === 'oldest'}  onSelect={()=> setActiveSortItem('oldest')} />
           </View>
         </View>
         <View>
           <Text style={textStyles.h2}>Genres</Text>
           <View style={styles.genreList}>
-            <Genre name="Action" selected={false} />
-            <Genre name="Adventure" selected={false} />
-            <Genre name="Animation" selected={false} />
+            {renderGenresList()}
           </View>
         </View>
         <View>
@@ -64,6 +127,8 @@ export default function Settings({ navigation }) {
               placeholder="From"
               placeholderTextColor={colors.neutral}
               maxLength={3}
+              value={startRuntimeVal}
+              onChangeText={(txt) => setStartRuntimeVal(txt)}
             />
             <Text style={textStyles.small}>-</Text>
             <TextInput
@@ -72,9 +137,14 @@ export default function Settings({ navigation }) {
               placeholder="To"
               placeholderTextColor={colors.neutral}
               maxLength={3}
+              value={endRuntimeVal}
+              onChangeText={(txt) => setEndRuntimeVal(txt)}
             />
             <Text style={textStyles.small}>minutes</Text>
           </View>
+          {showRuntimeErr &&
+          <Text style={styles.errTxt}>Runtime value is incorrect</Text>
+          }
         </View>
       </ScrollView>
       <View style={styles.buttonContainer}>
@@ -83,7 +153,7 @@ export default function Settings({ navigation }) {
           underlayColor={colors.neutral}
           style={styles.button}
           onPress={() => {
-            navigation.goBack()
+            handleSaveSetting()
           }}
         >
           <Text style={styles.buttonText}>Save</Text>
@@ -138,7 +208,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderRadius: 8,
-    fontSize: 14,
+    fontSize: sizes.md,
     width: 80
   },
   genreList: {
@@ -195,5 +265,10 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontWeight: fontWeights.bold,
     fontSize: sizes.md
+  },
+  errTxt: {
+    color: colors.red,
+    fontSize: sizes.sm,
+    marginTop: 10
   }
 })
